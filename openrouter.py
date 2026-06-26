@@ -23,6 +23,24 @@ TOOL_HANDLERS = {
 PreambleCb = Callable[[str], Awaitable[None]]
 
 
+def friendly_error(exc: Exception) -> str:
+    """Понятное пользователю сообщение об ошибке в стиле Пирожка."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        if code == 429:
+            return "Меня сейчас рвут на части — слишком много запросов 😅 Дай пару минут и попробуй снова."
+        if code == 402:
+            return "Ой, у меня закончились монетки на размышления 🪙 Передай хозяину, что пора пополнить."
+        if code in (401, 403):
+            return "Что-то у меня с доступом к мозгам 🔌 Похоже, проблема на моей стороне — попробуй позже."
+        if code in (500, 502, 503, 504):
+            return "Мои мозги (нейросеть) сейчас приуныли 😮‍💨 Это не у тебя — попробуй ещё раз через минутку."
+        return "Хм, с этим запросом что-то не так 🤔 Попробуй переформулировать или упростить."
+    if isinstance(exc, (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)):
+        return "Не могу достучаться до своих мозгов 🧠📡 Похоже, сервис прилёг. Дай минутку и попробуй снова."
+    return "Упс, что-то пошло не так 🙈 Попробуй ещё раз."
+
+
 def format_tools_for_prompt(tools: list[dict]) -> str:
     lines = []
     for t in tools:

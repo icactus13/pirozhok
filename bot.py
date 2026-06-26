@@ -6,7 +6,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from qdrant_client import AsyncQdrantClient
-from telegram.ext import Application
+from telegram import Update
+from telegram.error import Forbidden
+from telegram.ext import Application, ContextTypes
 
 import db
 import memory as mem
@@ -66,6 +68,21 @@ async def main() -> None:
     logger.info("Image model: %s, transcribe model: %s", image_model, transcribe_model)
 
     app = Application.builder().token(os.environ["TELEGRAM_TOKEN"]).build()
+
+    async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        logger.error("Unhandled error", exc_info=context.error)
+        # Не пытаемся отвечать, если юзер заблокировал бота и т.п.
+        if isinstance(context.error, Forbidden):
+            return
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(
+                    "Ой, я где-то споткнулся 🙈 Попробуй ещё раз, а если повторится — скажи хозяину."
+                )
+            except Exception:
+                logger.warning("Failed to send error notice to user")
+
+    app.add_error_handler(on_error)
 
     for handler, group in build_handlers(
         settings, qdrant, redis_client, admin_id, skills_registry, image_model, transcribe_model

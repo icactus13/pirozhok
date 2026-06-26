@@ -15,7 +15,7 @@ import images
 import memory as mem
 import ratelimit
 from meta_tools import ADMIN_TOOLS, make_admin_handlers
-from openrouter import TOOLS, ask_openrouter, format_tools_for_prompt
+from openrouter import TOOLS, ask_openrouter, format_tools_for_prompt, friendly_error
 from settings import BotSettings
 from skills import LOAD_SKILL_TOOL, SkillsRegistry, make_load_handler
 from tg_format import reply_formatted
@@ -285,7 +285,7 @@ async def _process(
         )
     except Exception as exc:
         logger.error("OpenRouter error: %s", exc)
-        await update.effective_message.reply_text("Упс, что-то пошло не так. Попробуй ещё раз 🙈")
+        await update.effective_message.reply_text(friendly_error(exc))
         return
 
     await db.save_user_message(user.id, "assistant", reply)
