@@ -53,6 +53,7 @@ async def ask_openrouter(
     extra_tools: list[dict] | None = None,
     extra_handlers: dict | None = None,
     on_preamble: PreambleCb | None = None,
+    plugins: list[dict] | None = None,
 ) -> str:
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {
@@ -72,6 +73,8 @@ async def ask_openrouter(
                 "messages": conversation,
                 "tools": tools,
             }
+            if plugins:
+                payload["plugins"] = plugins
             response = await client.post(
                 f"{OPENROUTER_BASE_URL}/chat/completions",
                 headers=headers,

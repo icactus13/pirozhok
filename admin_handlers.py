@@ -2,6 +2,7 @@ import logging
 
 from telegram import Update
 from telegram.ext import (
+    ApplicationHandlerStop,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
@@ -180,6 +181,8 @@ def build_admin_handlers(
 
     @admin_only
     async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        # Сюда попадают только админские .txt/.md (см. фильтр ниже). Любой исход
+        # завершается ApplicationHandlerStop, чтобы общий ридер файлов не дублировал.
         doc = update.message.document
         name = (doc.file_name or "").lower()
 
@@ -189,29 +192,27 @@ def build_admin_handlers(
             new_prompt = content.decode("utf-8").strip()
             if not new_prompt:
                 await update.message.reply_text("Файл пустой, промпт не изменён.")
-                return
-            settings.system_prompt = new_prompt
-            settings.save()
-            await update.message.reply_text("✅ Промпт загружен из файла!")
-            return
-
-        if name.endswith(".md"):
+            else:
+                settings.system_prompt = new_prompt
+                settings.save()
+                await update.message.reply_text("✅ Промпт загружен из файла!")
+        elif name.endswith(".md"):
             file = await context.bot.get_file(doc.file_id)
             content = await file.download_as_bytearray()
             try:
                 raw = content.decode("utf-8")
             except UnicodeDecodeError:
                 await update.message.reply_text("❌ Файл не в UTF-8.")
-                return
-            try:
-                entry = skills_registry.add_from_raw(raw)
-            except SkillError as exc:
-                await update.message.reply_text(f"❌ {exc}")
-                return
-            await update.message.reply_text(
-                f"✅ Скилл `{entry.name}` сохранён.", parse_mode="Markdown"
-            )
-            return
+            else:
+                try:
+                    entry = skills_registry.add_from_raw(raw)
+                    await update.message.reply_text(
+                        f"✅ Скилл `{entry.name}` сохранён.", parse_mode="Markdown"
+                    )
+                except SkillError as exc:
+                    await update.message.reply_text(f"❌ {exc}")
+
+        raise ApplicationHandlerStop
 
     private = filters.ChatType.PRIVATE
 
@@ -237,8 +238,14 @@ def build_admin_handlers(
         (CommandHandler("delskill", cmd_delskill, filters=private), 1),
         (CommandHandler("reloadskills", cmd_reloadskills, filters=private), 1),
         (addskill_conv, 1),
+        # Group 0: админский .txt→промпт / .md→скилл перехватывается раньше общего ридера файлов
         (
-            MessageHandler(private & filters.Document.ALL, handle_document),
-            1,
+            MessageHandler(
+                private
+                & filters.User(admin_id)
+                & (filters.Document.FileExtension("txt") | filters.Document.FileExtension("md")),
+                handle_document,
+            ),
+            0,
         ),
     ]

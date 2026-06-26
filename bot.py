@@ -62,11 +62,14 @@ async def main() -> None:
     logger.info("Skills: %d loaded", len(skills_registry.list()))
 
     image_model = os.environ.get("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image")
-    logger.info("Image model: %s", image_model)
+    transcribe_model = os.environ.get("OPENROUTER_TRANSCRIBE_MODEL", "openai/whisper-large-v3")
+    logger.info("Image model: %s, transcribe model: %s", image_model, transcribe_model)
 
     app = Application.builder().token(os.environ["TELEGRAM_TOKEN"]).build()
 
-    for handler, group in build_handlers(settings, qdrant, redis_client, admin_id, skills_registry, image_model):
+    for handler, group in build_handlers(
+        settings, qdrant, redis_client, admin_id, skills_registry, image_model, transcribe_model
+    ):
         app.add_handler(handler, group=group)
     for handler, group in build_admin_handlers(settings, admin_id, skills_registry):
         app.add_handler(handler, group=group)
