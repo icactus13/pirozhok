@@ -15,6 +15,16 @@ EXTRACT_EVERY_N = 5
 
 _message_counters: dict[int, int] = {}
 
+
+def _content_text(content) -> str:
+    """Текстовое представление content (строка или мультимодальный список частей)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+        return " ".join(t for t in parts if t)
+    return ""
+
 _EXTRACT_PROMPT = """Проанализируй этот диалог и выдели ТОЛЬКО новые конкретные факты о пользователе, \
 которые будет полезно помнить в будущих разговорах (имя, работа, интересы, предпочтения, важные события).
 Не выдумывай — только то, что явно сказано.
@@ -78,7 +88,7 @@ async def maybe_extract_facts(
         return
 
     dialogue = "\n".join(
-        f"{'Пользователь' if m['role'] == 'user' else 'Бот'}: {m['content']}"
+        f"{'Пользователь' if m['role'] == 'user' else 'Бот'}: {_content_text(m.get('content'))}"
         for m in conversation
         if m["role"] in ("user", "assistant")
     )

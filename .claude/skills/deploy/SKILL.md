@@ -41,6 +41,25 @@ Never overwrite on the server:
 
 Use `--sync-content` only when you explicitly want to push a new prompt/skill set from the repo to the server (e.g. first-time setup or rolling back live edits).
 
+## Before overwriting prompt.txt / skills (REQUIRED)
+
+The user edits `prompt.txt` live (via the bot / `/setprompt`), and new skills may be
+created on the server at runtime. So the server can legitimately have content the repo
+doesn't. **Never silently overwrite it.**
+
+- **Skills:** rsync runs WITHOUT `--delete`, so server-only skills are preserved — keep it
+  that way. Never delete a skill that exists only on the server.
+- **prompt.txt:** before running `--sync-content`, diff the server prompt against the repo,
+  understand exactly what diverged, and **ask the user what to keep vs overwrite**. Do not
+  decide yourself.
+
+  ```bash
+  ssh -p 2233 root@88.218.169.142 'cat /root/tgbot/prompt.txt' | diff - prompt.txt
+  ```
+
+If you only changed `.py` / `Dockerfile` / `requirements.txt`, use the **default deploy
+(no `--sync-content`)** — it leaves prompt.txt, skills/ and settings.json untouched.
+
 ## Verification after deploy
 
 The script shows container status and (with `--logs`) tails 20 lines. Healthy startup looks like:

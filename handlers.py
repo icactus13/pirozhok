@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -8,6 +9,7 @@ from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, MessageHandler, filters
 
 import db
+import images
 import memory as mem
 import ratelimit
 from meta_tools import ADMIN_TOOLS, make_admin_handlers
@@ -27,16 +29,20 @@ def _display_name(user) -> str:
 
 def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     msg = update.effective_message
-    if not msg or not msg.text:
+    if not msg:
         return False
-    if "пирожок" in msg.text.lower():
+    text = msg.text or msg.caption  # у фото текст лежит в caption
+    if not text:
+        return False
+    if "пирожок" in text.lower():
         return True
-    if not msg.entities:
+    entities = msg.entities or msg.caption_entities
+    if not entities:
         return False
     bot_mention = f"@{context.bot.username}".lower()
-    for entity in msg.entities:
+    for entity in entities:
         if entity.type == MessageEntity.MENTION:
-            mention_text = msg.text[entity.offset: entity.offset + entity.length]
+            mention_text = text[entity.offset: entity.offset + entity.length]
             if mention_text.lower() == bot_mention:
                 return True
     return False
@@ -86,6 +92,20 @@ def _build_system_prompt(
     return "".join(parts)
 
 
+async def _download_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скачать самое крупное фото из сообщения как (base64, mime) или None."""
+    msg = update.effective_message
+    if not msg or not msg.photo:
+        return None
+    try:
+        file = await context.bot.get_file(msg.photo[-1].file_id)
+        raw = await file.download_as_bytearray()
+        return base64.b64encode(bytes(raw)).decode(), "image/jpeg"
+    except Exception:
+        logger.exception("Failed to download photo")
+        return None
+
+
 async def _process(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -94,12 +114,16 @@ async def _process(
     redis_client,
     admin_id: int,
     skills_registry: SkillsRegistry,
+    image_model: str,
 ) -> None:
     user = update.effective_user
     chat = update.effective_chat
-    user_text = update.effective_message.text or ""
+    msg = update.effective_message
+    user_text = (msg.text or msg.caption or "").strip()
 
-    if not user_text.strip():
+    input_image = await _download_photo(update, context)
+
+    if not user_text and input_image is None:
         return
 
     if chat.type == "private" and user.id != admin_id:
@@ -127,15 +151,41 @@ async def _process(
         extra_tools.extend(ADMIN_TOOLS)
         extra_handlers.update(make_admin_handlers(settings, skills_registry))
 
+    # Картинки: рисование — всем, редактирование — только если приложено фото.
+    async def image_gate() -> str | None:
+        if user.id == admin_id:
+            return None
+        over = await ratelimit.check_image(redis_client, user.id)
+        return ratelimit.MESSAGES["image_day"] if over else None
+
+    extra_tools.append(images.GENERATE_IMAGE_TOOL)
+    if input_image is not None:
+        extra_tools.append(images.EDIT_IMAGE_TOOL)
+    extra_handlers.update(
+        images.make_image_handlers(msg, input_image, image_model, image_gate)
+    )
+
     all_tools_for_prompt = format_tools_for_prompt(TOOLS + extra_tools)
     system_prompt = _build_system_prompt(
         settings, relevant_memories, group_ctx, skills_list, all_tools_for_prompt,
     )
+
+    if input_image is not None:
+        b64, mime = input_image
+        user_content = [
+            {"type": "text", "text": user_text or "[фото без подписи]"},
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+        ]
+        history_text = (f"[прислал картинку] {user_text}").strip()
+    else:
+        user_content = user_text
+        history_text = user_text
+
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(user_history)
-    messages.append({"role": "user", "content": user_text})
+    messages.append({"role": "user", "content": user_content})
 
-    await db.save_user_message(user.id, "user", user_text)
+    await db.save_user_message(user.id, "user", history_text)
 
     await context.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
 
@@ -169,48 +219,55 @@ def build_handlers(
     redis_client,
     admin_id: int,
     skills_registry: SkillsRegistry,
+    image_model: str,
 ) -> list:
 
     async def save_group_context(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
         if not user:
             return
+        msg = update.effective_message
+        text = msg.text or msg.caption
+        if not text:  # фото без подписи и т.п. — нечего сохранять как контекст
+            return
         await db.save_group_message(
             group_id=update.effective_chat.id,
             user_id=user.id,
             username=_display_name(user),
-            text=update.effective_message.text,
+            text=text,
         )
 
     async def handle_private(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await _process(update, context, settings, qdrant, redis_client, admin_id, skills_registry)
+        await _process(update, context, settings, qdrant, redis_client, admin_id, skills_registry, image_model)
 
     async def handle_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not _is_bot_mentioned(update, context):
             return
-        await _process(update, context, settings, qdrant, redis_client, admin_id, skills_registry)
+        await _process(update, context, settings, qdrant, redis_client, admin_id, skills_registry, image_model)
+
+    text_or_photo = (filters.TEXT | filters.PHOTO) & ~filters.COMMAND
 
     return [
-        # Group 0: silently save all group messages for context
+        # Group 0: silently save all group messages (text + captioned photos) for context
         (
             MessageHandler(
-                filters.ChatType.GROUPS & filters.TEXT & ~filters.COMMAND,
+                filters.ChatType.GROUPS & text_or_photo,
                 save_group_context,
             ),
             0,
         ),
-        # Group 1: respond to private messages
+        # Group 1: respond to private messages (text or photo)
         (
             MessageHandler(
-                filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+                filters.ChatType.PRIVATE & text_or_photo,
                 handle_private,
             ),
             1,
         ),
-        # Group 1: respond to @mentions in groups
+        # Group 1: respond to @mentions in groups (text or photo)
         (
             MessageHandler(
-                filters.ChatType.GROUPS & filters.TEXT & ~filters.COMMAND,
+                filters.ChatType.GROUPS & text_or_photo,
                 handle_group,
             ),
             1,

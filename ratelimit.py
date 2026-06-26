@@ -4,10 +4,12 @@ import redis.asyncio as redis
 
 LIMIT_PER_MINUTE = 10
 LIMIT_PER_HOUR = 60
+IMAGE_LIMIT_PER_DAY = 5
 
 MESSAGES = {
     "minute": "Эй, помедленнее — я не успеваю отвечать 🥲",
     "hour": "Слушай, ты сегодня уже здорово наобщался. Давай вернёмся через часик?",
+    "image_day": "На сегодня лимит картинок исчерпан 🎨 Давай вернёмся к рисованию завтра!",
 }
 
 
@@ -33,3 +35,12 @@ async def check(client: redis.Redis, user_id: int) -> str | None:
 async def should_warn(client: redis.Redis, user_id: int, kind: str) -> bool:
     ttl = 60 if kind == "minute" else 3600
     return bool(await client.set(f"rl:w{kind[0]}:{user_id}", "1", nx=True, ex=ttl))
+
+
+async def check_image(client: redis.Redis, user_id: int) -> bool:
+    """Инкрементит суточный счётчик генераций. True — лимит превышен."""
+    pipe = client.pipeline()
+    pipe.incr(f"rl:img:{user_id}")
+    pipe.expire(f"rl:img:{user_id}", 86400, nx=True)
+    count, _ = await pipe.execute()
+    return count > IMAGE_LIMIT_PER_DAY
