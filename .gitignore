@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Secrets & runtime data
+.env
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local Claude config (machine-specific)
+.claude/settings.local.json
+
+# OS
+.DS_Store

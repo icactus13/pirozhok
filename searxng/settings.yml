@@ -1,0 +1,36 @@
+use_default_settings: true
+
+general:
+  instance_name: "Pirojok Search"
+
+server:
+  secret_key: "baeb14346faaea5f0fcc3880c31824bd98faf9770b7a7b47394046ebbb543d1f"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json
+  safe_search: 0
+  default_lang: "ru"
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: d
+
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: w
+
+  - name: yandex
+    engine: yandex
+    shortcut: y
+    disabled: false
