@@ -8,17 +8,20 @@ from telegram import MessageEntity, Update
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, MessageHandler, filters
 
-import audio
-import db
-import files
-import images
-import memory as mem
-import ratelimit
-from meta_tools import ADMIN_TOOLS, make_admin_handlers
-from openrouter import TOOLS, ask_openrouter, format_tools_for_prompt, friendly_error
-from settings import BotSettings
-from skills import LOAD_SKILL_TOOL, SkillsRegistry, make_load_handler
-from tg_format import reply_formatted
+from pirojok.bot.tg_format import reply_formatted
+from pirojok.services import audio, files, images
+from pirojok.services.meta_tools import ADMIN_TOOLS, make_admin_handlers
+from pirojok.services.openrouter import (
+    TOOLS,
+    ask_openrouter,
+    format_tools_for_prompt,
+    friendly_error,
+)
+from pirojok.settings import BotSettings
+from pirojok.skills import LOAD_SKILL_TOOL, SkillsRegistry, make_load_handler
+from pirojok.storage import db
+from pirojok.storage import memory as mem
+from pirojok.storage import ratelimit
 
 logger = logging.getLogger(__name__)
 

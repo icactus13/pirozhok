@@ -1,6 +1,11 @@
 .env
 settings.json
 data/
-__pycache__
+__pycache__/
 *.pyc
-.git
+.git/
+.venv/
+venv/
+.claude/
+MEMORY.md
+.DS_Store

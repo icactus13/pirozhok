@@ -24,19 +24,20 @@
 
 ## 🏗️ Архитектура
 
-| Компонент | Файл | Назначение |
-|-----------|------|------------|
-| Точка входа | `bot.py` | Инициализация, polling, graceful shutdown |
-| Хендлеры сообщений | `handlers.py` | Логика ответа (личка + группы) |
-| LLM-клиент | `openrouter.py` | Вызовы OpenRouter + tool-loop |
-| Отправка | `tg_format.py` | Рендер ответа в MarkdownV2 + сплит длинных |
-| Инструменты | `search.py`, `weather.py` | Веб-поиск и погода |
-| Скиллы | `skills.py` | Реестр markdown-скиллов из `skills/` |
-| Память | `memory.py` | Qdrant: извлечение и поиск фактов |
-| История | `db.py` | SQLite: история юзеров и контекст групп |
-| Настройки | `settings.py` | Промпт + модель + размер истории |
-| Рейт-лимит | `ratelimit.py` | Redis |
-| Админ-команды | `admin_handlers.py`, `meta_tools.py` | Управление из чата |
+Код — пакет `src/pirojok/` (src-layout). Рантайм-данные и конфиги — в корне.
+
+| Компонент | Модуль | Назначение |
+|-----------|--------|------------|
+| Точка входа | `pirojok/__main__.py` | Инициализация, polling, graceful shutdown |
+| Хендлеры сообщений | `pirojok/bot/handlers.py` | Логика ответа (текст/фото/голос/файлы) |
+| Админ-команды | `pirojok/bot/admin_handlers.py` | Управление из чата |
+| Отправка | `pirojok/bot/tg_format.py` | Рендер ответа в MarkdownV2 + сплит длинных |
+| LLM-клиент | `pirojok/services/openrouter.py` | Вызовы OpenRouter + tool-loop |
+| Медиа-инструменты | `pirojok/services/{images,audio,files}.py` | Картинки, голос (STT), файлы/PDF |
+| Поиск/погода | `pirojok/services/{search,weather}.py` | SearXNG, OpenWeatherMap |
+| Память | `pirojok/storage/memory.py` | Qdrant: извлечение и поиск фактов |
+| История/лимиты | `pirojok/storage/{db,ratelimit}.py` | SQLite + Redis |
+| Настройки/скиллы | `pirojok/{settings,skills}.py` | Промпт+модель; реестр скиллов из `skills/` |
 
 **Внешние сервисы:** OpenRouter (LLM), Qdrant (память), Redis (рейт-лимит + кэш
 SearXNG), SearXNG (поиск), OpenWeatherMap (погода).
@@ -53,14 +54,13 @@ docker compose up -d --build
 Поднимутся четыре сервиса: `bot`, `qdrant`, `redis`, `searxng`.
 Данные сохраняются в `./data/`, конфиг SearXNG — в `./searxng/`.
 
-### Локально
+### Локально (через [uv](https://docs.astral.sh/uv/))
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                    # создаст .venv и поставит зависимости из uv.lock
 cp .env.example .env       # заполни токены, QDRANT_HOST=localhost
 # нужен запущенный Qdrant, Redis и SearXNG (например, через docker compose)
-python bot.py
+uv run pirojok
 ```
 
 ## 🔧 Переменные окружения
@@ -70,7 +70,10 @@ python bot.py
 | `TELEGRAM_TOKEN` | ✅ | Токен бота от @BotFather |
 | `OPENROUTER_API_KEY` | ✅ | Ключ OpenRouter |
 | `ADMIN_USER_ID` | ✅ | Telegram ID админа (без рейт-лимита + админ-команды) |
-| `OPENROUTER_MODEL` | ✅ | Модель по умолчанию (напр. `google/gemini-2.5-flash`) |
+| `OPENROUTER_MODEL` | ✅ | Основная модель (напр. `google/gemini-2.5-flash`) |
+| `OPENROUTER_IMAGE_MODEL` | — | Генерация/редактирование картинок (`google/gemini-3.1-flash-image`) |
+| `OPENROUTER_TRANSCRIBE_MODEL` | — | Распознавание голоса (`openai/whisper-large-v3`) |
+| `OPENROUTER_PDF_ENGINE` | — | Парсер PDF: `mistral-ocr` (OCR, платный) или `pdf-text` (бесплатно) |
 | `OPENWEATHER_API_KEY` | — | Ключ OpenWeatherMap (для погоды) |
 | `QDRANT_HOST` / `QDRANT_PORT` | — | По умолчанию `localhost:6333` (в Docker — `qdrant`) |
 | `REDIS_URL` | — | По умолчанию подставляется в compose |

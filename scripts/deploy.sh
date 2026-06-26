@@ -29,7 +29,7 @@ into the image, not volume-mounted).
 
 Options:
   --no-rebuild     Skip the docker image rebuild — only restart the container.
-                   Use ONLY when no .py / Dockerfile / requirements.txt changed.
+                   Use ONLY when no .py / Dockerfile / pyproject.toml / uv.lock changed.
   --logs           Tail recent bot logs after deploy.
   --sync-content   Also overwrite live content on the server:
                    prompt.txt, skills/, settings.json. By default these are

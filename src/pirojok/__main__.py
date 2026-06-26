@@ -10,13 +10,13 @@ from telegram import Update
 from telegram.error import Forbidden
 from telegram.ext import Application, ContextTypes
 
-import db
-import memory as mem
-import ratelimit
-from admin_handlers import build_admin_handlers
-from handlers import build_handlers
-from settings import BotSettings
-from skills import SkillsRegistry
+from pirojok.bot.admin_handlers import build_admin_handlers
+from pirojok.bot.handlers import build_handlers
+from pirojok.settings import BotSettings
+from pirojok.skills import SkillsRegistry
+from pirojok.storage import db
+from pirojok.storage import memory as mem
+from pirojok.storage import ratelimit
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -109,5 +109,9 @@ async def main() -> None:
     logger.info("Shutdown complete.")
 
 
-if __name__ == "__main__":
+def run() -> None:
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    run()

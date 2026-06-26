@@ -10,8 +10,8 @@ from telegram.ext import (
     filters,
 )
 
-from settings import BotSettings
-from skills import NAME_RE, SkillError, SkillsRegistry
+from pirojok.settings import BotSettings
+from pirojok.skills import NAME_RE, SkillError, SkillsRegistry
 
 logger = logging.getLogger(__name__)
 

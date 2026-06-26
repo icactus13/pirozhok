@@ -5,8 +5,13 @@ from typing import Awaitable, Callable
 
 import httpx
 
-from search import WEB_SEARCH_TOOL, web_search
-from weather import WEATHER_FORECAST_TOOL, WEATHER_TOOL, get_forecast, get_weather
+from pirojok.services.search import WEB_SEARCH_TOOL, web_search
+from pirojok.services.weather import (
+    WEATHER_FORECAST_TOOL,
+    WEATHER_TOOL,
+    get_forecast,
+    get_weather,
+)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 MAX_TOOL_ITERATIONS = 4

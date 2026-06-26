@@ -29,7 +29,7 @@ Python code is **baked into the image** at `docker build` time — it's not volu
 - `skills/*.md` (volume-mounted)
 - `searxng/settings.yml` (volume-mounted into searxng container — needs `docker compose restart searxng`, not bot)
 
-For anything else (any `.py`, `Dockerfile`, `requirements.txt`, `docker-compose.yml`) — leave the default rebuild on.
+For anything else (any `.py` under `src/`, `Dockerfile`, `pyproject.toml`, `uv.lock`, `docker-compose.yml`) — leave the default rebuild on.
 
 ## What's excluded from sync by default
 
@@ -57,7 +57,7 @@ doesn't. **Never silently overwrite it.**
   ssh -p 2233 root@88.218.169.142 'cat /root/tgbot/prompt.txt' | diff - prompt.txt
   ```
 
-If you only changed `.py` / `Dockerfile` / `requirements.txt`, use the **default deploy
+If you only changed `.py` / `Dockerfile` / `pyproject.toml` / `uv.lock`, use the **default deploy
 (no `--sync-content`)** — it leaves prompt.txt, skills/ and settings.json untouched.
 
 ## Verification after deploy
@@ -81,7 +81,7 @@ If any of these are missing, or there's a Python traceback — investigate befor
 - **`ssh: connect to host ...: Connection refused`** — server unreachable or wrong port. Confirm with `ssh -p 2233 root@88.218.169.142 'echo ok'`.
 - **`rsync: ... permission denied`** — likely an SSH agent issue, not a server problem.
 - **Bot starts then dies** — check `docker logs tgbot-bot-1` for the traceback. Common: missing env var (e.g. `OPENWEATHER_API_KEY`), or new dependency without `--rebuild`.
-- **Bot won't pick up code changes** — you forgot `--rebuild` after `requirements.txt` change, or the volume mount is shadowing a file. Try `--rebuild` first.
+- **Bot won't pick up code changes** — you forgot `--rebuild` after a dependency change (`pyproject.toml`/`uv.lock`), or the volume mount is shadowing a file. Try `--rebuild` first.
 
 ## Env overrides
 

@@ -1,7 +1,7 @@
 import logging
 
-from settings import BotSettings
-from skills import SkillError, SkillsRegistry
+from pirojok.settings import BotSettings
+from pirojok.skills import SkillError, SkillsRegistry
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import uuid
 
 from qdrant_client import AsyncQdrantClient, models
 
-from openrouter import ask_openrouter
+from pirojok.services.openrouter import ask_openrouter
 
 logger = logging.getLogger(__name__)
 
