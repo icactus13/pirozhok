@@ -80,6 +80,8 @@ async def ask_openrouter(
                 headers=headers,
                 json=payload,
             )
+            if response.status_code >= 400:
+                logger.error("OpenRouter %s: %s", response.status_code, response.text[:1000])
             response.raise_for_status()
             data = response.json()
             msg = data["choices"][0]["message"]
