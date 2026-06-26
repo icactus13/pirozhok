@@ -5,6 +5,7 @@ OpenRouter). Текстовые файлы читаем локально и вс
 """
 import base64
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -69,4 +70,7 @@ def build_pdf_content(filename: str, raw: bytes) -> dict:
 
 
 # Плагин OpenRouter, парсящий PDF для любой модели.
-PDF_PLUGINS = [{"id": "file-parser", "pdf": {}}]
+# Движок: mistral-ocr (OCR, читает сканы, платный) | pdf-text (бесплатно, только текстовый слой)
+# | native (нативный парсер модели — может падать на сложных PDF). Настраивается через env.
+PDF_ENGINE = os.environ.get("OPENROUTER_PDF_ENGINE", "mistral-ocr")
+PDF_PLUGINS = [{"id": "file-parser", "pdf": {"engine": PDF_ENGINE}}]
